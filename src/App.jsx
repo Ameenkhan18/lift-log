@@ -162,7 +162,7 @@ export default function WorkoutTracker() {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
           <div>
             <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 28, letterSpacing: 3, color: "#fff", lineHeight: 1 }}>
-              LIFT LOG
+             Ameen's LIFT LOG
             </div>
             <div style={{ fontSize: 10, color: "#444", letterSpacing: 2, marginTop: 3 }}>{getWeekLabel()}</div>
           </div>
