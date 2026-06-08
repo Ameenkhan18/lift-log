@@ -45,7 +45,7 @@ const DAYS = [
   { day: "Sunday", short: "SUN", label: "Rest", sub: "Recovery", color: "#374151", glow: "transparent", exercises: [], isRest: true },
 ];
 
-const SETS_COUNT = 4;
+const SETS_COUNT = 3;
 
 function todayKey() {
   return new Date().toISOString().slice(0, 10);
