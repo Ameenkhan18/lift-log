@@ -65,7 +65,7 @@ function getTodayDayIndex() {
 
 export default function WorkoutTracker() {
   const [activeDay, setActiveDay] = useState(getTodayDayIndex());
-  const [view, setView] = useState("log"); // log | history
+  const [view, setView] = useState("log"); // log | history | diet
   const [logs, setLogs] = useState(() => {
     try { return JSON.parse(localStorage.getItem("wt_logs") || "{}"); } catch { return {}; }
   });
@@ -167,7 +167,7 @@ export default function WorkoutTracker() {
             <div style={{ fontSize: 10, color: "#444", letterSpacing: 2, marginTop: 3 }}>{getWeekLabel()}</div>
           </div>
           <div style={{ display: "flex", gap: 6 }}>
-            {["log", "history"].map(v => (
+            {["log", "history", "diet"].map(v => (
               <button key={v} onClick={() => setView(v)} style={{
                 padding: "6px 14px", border: "1px solid", borderRadius: 6, cursor: "pointer",
                 fontSize: 10, letterSpacing: 2, fontFamily: "'JetBrains Mono', monospace",
@@ -433,6 +433,74 @@ export default function WorkoutTracker() {
               </div>
             ));
           })()}
+        </div>
+      )}
+      {view === "diet" && (
+        <div style={{ padding: "16px 14px 40px" }}>
+
+          {/* Goal Banner */}
+          <div style={{ background: "linear-gradient(135deg, rgba(249,115,22,0.15), transparent)", border: "1px solid rgba(249,115,22,0.3)", borderRadius: 12, padding: "18px", marginBottom: 14 }}>
+            <div style={{ fontSize: 10, letterSpacing: 3, color: "#F97316", marginBottom: 8, textTransform: "uppercase" }}>🎯 Your Goal</div>
+            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color: "#fff", letterSpacing: 2 }}>57 KG → 65 KG</div>
+            <div style={{ fontSize: 12, color: "#888", marginTop: 4 }}>~25% body fat → muscular & bulky physique</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginTop: 14 }}>
+              {[["3 Months","60 kg"],["6 Months","62–63 kg"],["12 Months","65 kg"]].map(([t,w]) => (
+                <div key={t} style={{ background: "#0d0d1a", borderRadius: 8, padding: "10px 8px", textAlign: "center", border: "1px solid #1a1a2e" }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#F97316", fontFamily: "'JetBrains Mono', monospace" }}>{w}</div>
+                  <div style={{ fontSize: 9, color: "#555", marginTop: 3, letterSpacing: 1 }}>{t}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Daily Targets */}
+          <div style={{ background: "#0d0d1a", border: "1px solid #1a1a2e", borderRadius: 12, padding: "18px", marginBottom: 14 }}>
+            <div style={{ fontSize: 10, letterSpacing: 3, color: "#22D3EE", marginBottom: 12, textTransform: "uppercase" }}>📊 Daily Targets</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              {[["🔥 Calories","1900–2100 kcal","#F97316"],["💪 Protein","110–130 g","#22D3EE"],["💧 Water","3 Litres","#60A5FA"],["😴 Sleep","7.5–9 Hours","#A78BFA"],["⚗️ Creatine","5 g Daily","#4ADE80"],["👟 Steps","8,000–10,000","#FACC15"]].map(([label, val, color]) => (
+                <div key={label} style={{ background: "#111", borderRadius: 8, padding: "12px 10px", border: "1px solid #1a1a2e" }}>
+                  <div style={{ fontSize: 11, color: "#555", marginBottom: 4 }}>{label}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color, fontFamily: "'JetBrains Mono', monospace" }}>{val}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Meals */}
+          {[
+            { time: "Early Morning", emoji: "🌅", sub: "Pre-Workout", color: "#F97316", items: ["1 Banana","Black Coffee (optional)"], protein: null },
+            { time: "Breakfast", emoji: "🍳", sub: "Post-Workout", color: "#FACC15", items: ["4 Whole Eggs + 2 Egg Whites","80g Oats with 250ml Milk","1 Fruit (Apple / Banana)"], protein: "~35g" },
+            { time: "Lunch", emoji: "🍗", sub: "Midday", color: "#22D3EE", items: ["150–200g Chicken / Fish OR 100g Paneer","2 Chapatis + 1 Bowl Rice","1 Bowl Dal + Salad"], protein: "~40g" },
+            { time: "Evening Snack", emoji: "🥜", sub: "Pre-Workout fuel", color: "#A78BFA", items: ["Peanut Butter Sandwich (4 bread + 2 tbsp PB)","200ml Milk"], protein: "~15g" },
+            { time: "Post-Workout", emoji: "💊", sub: "Recovery", color: "#4ADE80", items: ["1 Scoop Whey Protein (optional)","1 Banana"], protein: "~25g" },
+            { time: "Dinner", emoji: "🌙", sub: "Evening", color: "#60A5FA", items: ["150–200g Chicken / Fish OR 100g Paneer","2 Chapatis + Mixed Vegetables + Salad"], protein: "~40g" },
+            { time: "Before Bed", emoji: "🥛", sub: "Slow protein", color: "#F472B6", items: ["250ml Milk"], protein: null },
+          ].map((meal, i) => (
+            <div key={i} style={{ background: "#0d0d1a", border: `1px solid ${meal.color}25`, borderRadius: 12, marginBottom: 10, overflow: "hidden" }}>
+              <div style={{ padding: "12px 16px", borderBottom: "1px solid #1a1a2e", background: `${meal.color}10`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontSize: 18 }}>{meal.emoji}</span>
+                  <div>
+                    <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, color: meal.color, letterSpacing: 2 }}>{meal.time}</div>
+                    <div style={{ fontSize: 10, color: "#555", letterSpacing: 1 }}>{meal.sub}</div>
+                  </div>
+                </div>
+                {meal.protein && (
+                  <div style={{ background: `${meal.color}20`, border: `1px solid ${meal.color}40`, borderRadius: 20, padding: "4px 10px", fontSize: 11, color: meal.color, fontFamily: "'JetBrains Mono', monospace" }}>
+                    {meal.protein} protein
+                  </div>
+                )}
+              </div>
+              <div style={{ padding: "12px 16px" }}>
+                {meal.items.map((item, j) => (
+                  <div key={j} style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: j < meal.items.length - 1 ? 8 : 0 }}>
+                    <span style={{ color: meal.color, fontSize: 10, marginTop: 3, flexShrink: 0 }}>→</span>
+                    <span style={{ fontSize: 13, color: "#aaa", lineHeight: 1.5 }}>{item}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>
