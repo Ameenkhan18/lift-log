@@ -457,7 +457,7 @@ export default function WorkoutTracker() {
           <div style={{ background: "#0d0d1a", border: "1px solid #1a1a2e", borderRadius: 12, padding: "18px", marginBottom: 14 }}>
             <div style={{ fontSize: 10, letterSpacing: 3, color: "#22D3EE", marginBottom: 12, textTransform: "uppercase" }}>📊 Daily Targets</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-              {[["🔥 Calories","1900–2100 kcal","#F97316"],["💪 Protein","110–130 g","#22D3EE"],["💧 Water","3 Litres","#60A5FA"],["😴 Sleep","7.5–9 Hours","#A78BFA"],["⚗️ Creatine","5 g Daily","#4ADE80"],["👟 Steps","8,000–10,000","#FACC15"]].map(([label, val, color]) => (
+              {[["🔥 Calories","1900–2100 kcal","#F97316"],["💪 Protein","110–130 g","#22D3EE"],["💧 Water","3 Litres","#60A5FA"],["😴 Sleep","7.5–9 Hours","#A78BFA"],["⚗️ Creatine","5 g Daily","#4ADE80"].map(([label, val, color]) => (
                 <div key={label} style={{ background: "#111", borderRadius: 8, padding: "12px 10px", border: "1px solid #1a1a2e" }}>
                   <div style={{ fontSize: 11, color: "#555", marginBottom: 4 }}>{label}</div>
                   <div style={{ fontSize: 13, fontWeight: 700, color, fontFamily: "'JetBrains Mono', monospace" }}>{val}</div>
@@ -468,12 +468,12 @@ export default function WorkoutTracker() {
 
           {/* Meals */}
           {[
-            { time: "Early Morning", emoji: "🌅", sub: "Pre-Workout", color: "#F97316", items: ["1 Banana","Black Coffee (optional)"], protein: null },
+            { time: "Early Morning", emoji: "🌅", sub: "Pre-Workout", color: "#F97316", items: ["1 Banana","Black Coffee"], protein: null },
+            { time: "Post-Workout", emoji: "💊", sub: "Recovery", color: "#4ADE80", items: ["1 Scoop Whey Protein (optional)","1 Banana"], protein: "~25g" },
             { time: "Breakfast", emoji: "🍳", sub: "Post-Workout", color: "#FACC15", items: ["4 Whole Eggs + 2 Egg Whites","80g Oats with 250ml Milk","1 Fruit (Apple / Banana)"], protein: "~35g" },
             { time: "Lunch", emoji: "🍗", sub: "Midday", color: "#22D3EE", items: ["150–200g Chicken / Fish OR 100g Paneer","2 Chapatis + 1 Bowl Rice","1 Bowl Dal + Salad"], protein: "~40g" },
             { time: "Evening Snack", emoji: "🥜", sub: "Pre-Workout fuel", color: "#A78BFA", items: ["Peanut Butter Sandwich (4 bread + 2 tbsp PB)","200ml Milk"], protein: "~15g" },
-            { time: "Post-Workout", emoji: "💊", sub: "Recovery", color: "#4ADE80", items: ["1 Scoop Whey Protein (optional)","1 Banana"], protein: "~25g" },
-            { time: "Dinner", emoji: "🌙", sub: "Evening", color: "#60A5FA", items: ["150–200g Chicken / Fish OR 100g Paneer","2 Chapatis + Mixed Vegetables + Salad"], protein: "~40g" },
+            { time: "Dinner", emoji: "🌙", sub: "Evening", color: "#60A5FA", items: ["150–200g Chicken / Fish OR 100g Paneer","3 Chapatis + Mixed Vegetables + Salad"], protein: "~40g" },
             { time: "Before Bed", emoji: "🥛", sub: "Slow protein", color: "#F472B6", items: ["250ml Milk"], protein: null },
           ].map((meal, i) => (
             <div key={i} style={{ background: "#0d0d1a", border: `1px solid ${meal.color}25`, borderRadius: 12, marginBottom: 10, overflow: "hidden" }}>
