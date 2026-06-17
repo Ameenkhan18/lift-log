@@ -1,11 +1,4 @@
 import { useState, useEffect, useCallback } from "react";
-const [calMonth, setCalMonth] = useState(0);
-        const [habit, setHabit] = useState(() => {
-          try { return JSON.parse(localStorage.getItem("habit_cal") || "{}"); } catch { return {}; }
-        });
-        const [habitName, setHabitName] = useState(() => localStorage.getItem("habit_name") || "My Habit");
-        const [editingName, setEditingName] = useState(false);
-
 const DAYS = [
   {
     day: "Monday", short: "MON", label: "Push", sub: "Chest · Shoulders · Triceps",
@@ -524,6 +517,12 @@ export default function WorkoutTracker() {
           { name: "Dhul Hijjah", days: 29 },
         ];
         const WEEK_DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+        const [calMonth, setCalMonth] = useState(0);
+        const [habit, setHabit] = useState(() => {
+          try { return JSON.parse(localStorage.getItem("habit_cal") || "{}"); } catch { return {}; }
+        });
+        const [habitName, setHabitName] = useState(() => localStorage.getItem("habit_name") || "My Habit");
+        const [editingName, setEditingName] = useState(false);
         
 
         const toggle = (key) => {
