@@ -65,7 +65,7 @@ function getTodayDayIndex() {
 
 export default function WorkoutTracker() {
   const [activeDay, setActiveDay] = useState(getTodayDayIndex());
-  const [view, setView] = useState("log"); // log | history | diet
+  const [view, setView] = useState("log"); // log | history | diet | calendar
   const [logs, setLogs] = useState(() => {
     try { return JSON.parse(localStorage.getItem("wt_logs") || "{}"); } catch { return {}; }
   });
@@ -167,8 +167,8 @@ export default function WorkoutTracker() {
             <div style={{ fontSize: 10, color: "#444", letterSpacing: 2, marginTop: 3 }}>{getWeekLabel()}</div>
           </div>
           <div style={{ display: "flex", gap: 6 }}>
-            {["log", "history", "diet"].map(v => (
-              <button key={v} onClick={() => setView(v)} style={{
+          {["log", "history", "diet", "calendar"].map(v => (
+              <button key={v} onClick={() => (v)} style={{
                 padding: "6px 14px", border: "1px solid", borderRadius: 6, cursor: "pointer",
                 fontSize: 10, letterSpacing: 2, fontFamily: "'JetBrains Mono', monospace",
                 background: view === v ? "#1a1a2e" : "transparent",
@@ -503,6 +503,155 @@ export default function WorkoutTracker() {
           ))}
         </div>
       )}
+     {view === "calendar" && (() => {
+        const ISLAMIC_MONTHS = [
+          { name: "Muharram", days: 30 },
+          { name: "Safar", days: 29 },
+          { name: "Rabi al-Awwal", days: 30 },
+          { name: "Rabi al-Thani", days: 29 },
+          { name: "Jumada al-Awwal", days: 30 },
+          { name: "Jumada al-Thani", days: 29 },
+          { name: "Rajab", days: 30 },
+          { name: "Sha'ban", days: 29 },
+          { name: "Ramadan", days: 30 },
+          { name: "Shawwal", days: 29 },
+          { name: "Dhul Qa'dah", days: 30 },
+          { name: "Dhul Hijjah", days: 29 },
+        ];
+        const WEEK_DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+        const [calMonth, setCalMonth] = useState(0);
+        const [habit, setHabit] = useState(() => {
+          try { return JSON.parse(localStorage.getItem("habit_cal") || "{}"); } catch { return {}; }
+        });
+        const [habitName, setHabitName] = useState(() => localStorage.getItem("habit_name") || "My Habit");
+        const [editingName, setEditingName] = useState(false);
+
+        const toggle = (key) => {
+          setHabit(prev => {
+            const cur = prev[key];
+            const next = cur === "done" ? "miss" : cur === "miss" ? null : "done";
+            const updated = { ...prev };
+            if (next === null) delete updated[key]; else updated[key] = next;
+            localStorage.setItem("habit_cal", JSON.stringify(updated));
+            return updated;
+          });
+        };
+
+        const saveName = (name) => {
+          setHabitName(name);
+          localStorage.setItem("habit_name", name);
+          setEditingName(false);
+        };
+
+        const month = ISLAMIC_MONTHS[calMonth];
+        const done = Object.keys(habit).filter(k => k.startsWith(`${calMonth}_`) && habit[k] === "done").length;
+        const miss = Object.keys(habit).filter(k => k.startsWith(`${calMonth}_`) && habit[k] === "miss").length;
+        const total = month.days;
+        const pctDone = Math.round((done / total) * 100);
+
+        return (
+          <div style={{ padding: "16px 14px 40px" }}>
+
+            {/* Habit Name */}
+            <div style={{ background: "linear-gradient(135deg, rgba(250,204,21,0.12), transparent)", border: "1px solid rgba(250,204,21,0.25)", borderRadius: 12, padding: "18px", marginBottom: 14 }}>
+              <div style={{ fontSize: 10, letterSpacing: 3, color: "#FACC15", marginBottom: 10, textTransform: "uppercase" }}>☪️ Islamic Habit Tracker</div>
+              {editingName ? (
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input
+                    autoFocus
+                    defaultValue={habitName}
+                    onKeyDown={e => e.key === "Enter" && saveName(e.target.value)}
+                    style={{
+                      flex: 1, background: "#111", border: "1px solid #FACC1540",
+                      borderRadius: 8, padding: "10px 14px", color: "#fff",
+                      fontSize: 16, fontFamily: "'JetBrains Mono', monospace",
+                    }}
+                  />
+                  <button onClick={e => saveName(e.target.previousSibling?.value || habitName)} style={{
+                    background: "#FACC15", border: "none", borderRadius: 8,
+                    padding: "10px 16px", color: "#000", cursor: "pointer",
+                    fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: 1,
+                  }}>SAVE</button>
+                </div>
+              ) : (
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 24, color: "#fff", letterSpacing: 2 }}>{habitName}</div>
+                  <button onClick={() => setEditingName(true)} style={{
+                    background: "#1a1a2e", border: "1px solid #333", borderRadius: 6,
+                    padding: "6px 12px", color: "#888", cursor: "pointer",
+                    fontSize: 10, letterSpacing: 1, fontFamily: "'JetBrains Mono', monospace",
+                  }}>✏️ EDIT</button>
+                </div>
+              )}
+              <div style={{ fontSize: 11, color: "#555", marginTop: 6 }}>Tap a date once → ✅ Done &nbsp;|&nbsp; Tap again → ❌ Missed &nbsp;|&nbsp; Tap again → clear</div>
+            </div>
+
+            {/* Month Selector */}
+            <div style={{ display: "flex", overflowX: "auto", gap: 6, marginBottom: 14, scrollbarWidth: "none", paddingBottom: 4 }}>
+              {ISLAMIC_MONTHS.map((m, i) => (
+                <button key={i} onClick={() => setCalMonth(i)} style={{
+                  flexShrink: 0, padding: "8px 12px", border: `1px solid ${calMonth === i ? "#FACC15" : "#1a1a2e"}`,
+                  borderRadius: 8, background: calMonth === i ? "rgba(250,204,21,0.12)" : "#0d0d1a",
+                  color: calMonth === i ? "#FACC15" : "#555",
+                  fontSize: 10, letterSpacing: 1, cursor: "pointer",
+                  fontFamily: "'JetBrains Mono', monospace", whiteSpace: "nowrap",
+                }}>{m.name}</button>
+              ))}
+            </div>
+
+            {/* Month Stats */}
+            <div style={{ background: "#0d0d1a", border: "1px solid #1a1a2e", borderRadius: 12, padding: "16px", marginBottom: 14 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, color: "#FACC15", letterSpacing: 2 }}>{month.name}</div>
+                <div style={{ fontSize: 11, color: "#555", fontFamily: "'JetBrains Mono', monospace" }}>{month.days} days</div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
+                {[["✅ Done", done, "#4ADE80"],["❌ Missed", miss, "#F87171"],["⬜ Left", total - done - miss, "#444"]].map(([label, val, color]) => (
+                  <div key={label} style={{ background: "#111", borderRadius: 8, padding: "10px", textAlign: "center", border: "1px solid #1a1a2e" }}>
+                    <div style={{ fontSize: 18, fontWeight: 700, color, fontFamily: "'JetBrains Mono', monospace" }}>{val}</div>
+                    <div style={{ fontSize: 9, color: "#555", marginTop: 3, letterSpacing: 1 }}>{label}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ background: "#111", borderRadius: 4, height: 6, overflow: "hidden", display: "flex" }}>
+                <div style={{ width: `${pctDone}%`, background: "#4ADE80", transition: "width 0.3s" }} />
+                <div style={{ width: `${Math.round((miss/total)*100)}%`, background: "#F87171", transition: "width 0.3s" }} />
+              </div>
+              <div style={{ fontSize: 10, color: "#555", marginTop: 6, textAlign: "right", letterSpacing: 1 }}>{pctDone}% completed this month</div>
+            </div>
+
+            {/* Week day headers */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, marginBottom: 6 }}>
+              {WEEK_DAYS.map(d => (
+                <div key={d} style={{ textAlign: "center", fontSize: 9, color: "#444", letterSpacing: 1, padding: "4px 0" }}>{d}</div>
+              ))}
+            </div>
+
+            {/* Calendar Grid */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
+              {Array.from({ length: month.days }).map((_, i) => {
+                const dayNum = i + 1;
+                const key = `${calMonth}_${dayNum}`;
+                const status = habit[key];
+                return (
+                  <button key={i} onClick={() => toggle(key)} style={{
+                    aspectRatio: "1", borderRadius: 8, border: "1px solid",
+                    borderColor: status === "done" ? "#4ADE8060" : status === "miss" ? "#F8717160" : "#1a1a2e",
+                    background: status === "done" ? "rgba(74,222,128,0.15)" : status === "miss" ? "rgba(248,113,113,0.15)" : "#0d0d1a",
+                    cursor: "pointer", display: "flex", flexDirection: "column",
+                    alignItems: "center", justifyContent: "center", gap: 1,
+                    transition: "all 0.15s",
+                  }}>
+                    <span style={{ fontSize: 11, color: status === "done" ? "#4ADE80" : status === "miss" ? "#F87171" : "#555", fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>{dayNum}</span>
+                    <span style={{ fontSize: 12, lineHeight: 1 }}>{status === "done" ? "✅" : status === "miss" ? "❌" : ""}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+          </div>
+        );
+      })()} 
     </div>
   );
 }
