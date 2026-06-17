@@ -1,11 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-const [calMonth, setCalMonth] = useState(0);
-const [habit, setHabit] = useState(() => {
-  try { return JSON.parse(localStorage.getItem("habit_cal") || "{}"); } catch { return {}; }
-});
-const [habitName, setHabitName] = useState(() => localStorage.getItem("habit_name") || "My Habit");
-const [editingName, setEditingName] = useState(false);
-const DAYS = [
+
   {
     day: "Monday", short: "MON", label: "Push", sub: "Chest · Shoulders · Triceps",
     color: "#F97316", glow: "rgba(249,115,22,0.15)",
@@ -77,6 +71,13 @@ export default function WorkoutTracker() {
   const [inputs, setInputs] = useState({});
   const [saved, setSaved] = useState(false);
   const [historyDay, setHistoryDay] = useState(0);
+  const [calMonth, setCalMonth] = useState(0);
+  const [habit, setHabit] = useState(() => {
+  try { return JSON.parse(localStorage.getItem("habit_cal") || "{}"); } catch { return {}; }
+});
+const [habitName, setHabitName] = useState(() => localStorage.getItem("habit_name") || "My Habit");
+const [editingName, setEditingName] = useState(false);
+const DAYS = [
 
   const day = DAYS[activeDay];
   const dateKey = `${activeDay}_${todayKey()}`;
@@ -523,8 +524,6 @@ export default function WorkoutTracker() {
           { name: "Dhul Hijjah", days: 29 },
         ];
         const WEEK_DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-      
-
         const saveName = (name) => {
           setHabitName(name);
           localStorage.setItem("habit_name", name);
