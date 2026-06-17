@@ -1,4 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
+const [calMonth, setCalMonth] = useState(0);
+        const [habit, setHabit] = useState(() => {
+          try { return JSON.parse(localStorage.getItem("habit_cal") || "{}"); } catch { return {}; }
+        });
+        const [habitName, setHabitName] = useState(() => localStorage.getItem("habit_name") || "My Habit");
+        const [editingName, setEditingName] = useState(false);
 
 const DAYS = [
   {
@@ -167,16 +173,15 @@ export default function WorkoutTracker() {
             <div style={{ fontSize: 10, color: "#444", letterSpacing: 2, marginTop: 3 }}>{getWeekLabel()}</div>
           </div>
           <div style={{ display: "flex", gap: 6 }}>
-          {["log", "history", "diet", "calendar"].map(v => (
-              <button key={v} onClick={() => (v)} style={{
-                padding: "6px 14px", border: "1px solid", borderRadius: 6, cursor: "pointer",
-                fontSize: 10, letterSpacing: 2, fontFamily: "'JetBrains Mono', monospace",
-                background: view === v ? "#1a1a2e" : "transparent",
-                borderColor: view === v ? "#333" : "#1a1a2e",
-                color: view === v ? "#fff" : "#444",
-                textTransform: "uppercase",
-              }}>{v}</button>
-            ))}
+           {["log", "history", "diet", "calendar"].map(v => (
+              <button key={v} onClick={() => setView(v)} style={{
+              flex: 1, padding: "14px", border: "none", background: "transparent",
+              color: view === v ? "#FF6B35" : "#555",
+              borderBottom: view === v ? "2px solid #FF6B35" : "2px solid transparent",
+              fontSize: 10, letterSpacing: 2, textTransform: "uppercase", cursor: "pointer",
+              fontFamily: "'JetBrains Mono', monospace", transition: "color 0.2s",
+           }}>{v}</button>
+           ))}
           </div>
         </div>
       </div>
@@ -519,12 +524,7 @@ export default function WorkoutTracker() {
           { name: "Dhul Hijjah", days: 29 },
         ];
         const WEEK_DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-        const [calMonth, setCalMonth] = useState(0);
-        const [habit, setHabit] = useState(() => {
-          try { return JSON.parse(localStorage.getItem("habit_cal") || "{}"); } catch { return {}; }
-        });
-        const [habitName, setHabitName] = useState(() => localStorage.getItem("habit_name") || "My Habit");
-        const [editingName, setEditingName] = useState(false);
+        
 
         const toggle = (key) => {
           setHabit(prev => {
