@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 
+const DAYS = [
   {
     day: "Monday", short: "MON", label: "Push", sub: "Chest · Shoulders · Triceps",
     color: "#F97316", glow: "rgba(249,115,22,0.15)",
@@ -46,6 +47,23 @@ import { useState, useEffect, useCallback } from "react";
 
 const SETS_COUNT = 3;
 
+const GREGORIAN_MONTHS_2026 = [
+  { name: "January", days: 31, startDay: 4 },
+  { name: "February", days: 28, startDay: 0 },
+  { name: "March", days: 31, startDay: 0 },
+  { name: "April", days: 30, startDay: 3 },
+  { name: "May", days: 31, startDay: 5 },
+  { name: "June", days: 30, startDay: 1 },
+  { name: "July", days: 31, startDay: 3 },
+  { name: "August", days: 31, startDay: 6 },
+  { name: "September", days: 30, startDay: 2 },
+  { name: "October", days: 31, startDay: 4 },
+  { name: "November", days: 30, startDay: 0 },
+  { name: "December", days: 31, startDay: 2 },
+];
+
+const WEEK_DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+
 function todayKey() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -58,26 +76,34 @@ function getWeekLabel() {
 }
 
 function getTodayDayIndex() {
-  const jsDay = new Date().getDay(); // 0=Sun
+  const jsDay = new Date().getDay();
   return jsDay === 0 ? 6 : jsDay - 1;
 }
 
 export default function WorkoutTracker() {
   const [activeDay, setActiveDay] = useState(getTodayDayIndex());
-  const [view, setView] = useState("log"); // log | history | diet | calendar
+  const [view, setView] = useState("log");
   const [logs, setLogs] = useState(() => {
     try { return JSON.parse(localStorage.getItem("wt_logs") || "{}"); } catch { return {}; }
   });
   const [inputs, setInputs] = useState({});
   const [saved, setSaved] = useState(false);
   const [historyDay, setHistoryDay] = useState(0);
-  const [calMonth, setCalMonth] = useState(0);
+
+  // Calendar state
+  const [calMonth, setCalMonth] = useState(new Date().getMonth());
   const [habit, setHabit] = useState(() => {
-  try { return JSON.parse(localStorage.getItem("habit_cal") || "{}"); } catch { return {}; }
-});
-const [habitName, setHabitName] = useState(() => localStorage.getItem("habit_name") || "My Habit");
-const [editingName, setEditingName] = useState(false);
-const DAYS = [
+    try { return JSON.parse(localStorage.getItem("habit_cal") || "{}"); } catch { return {}; }
+  });
+  const [habitT, setHabitT] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("habit_t") || "{}"); } catch { return {}; }
+  });
+  const [habitQ, setHabitQ] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("habit_q") || "{}"); } catch { return {}; }
+  });
+  const [habitName, setHabitName] = useState(() => localStorage.getItem("habit_name") || "My Habit");
+  const [editingName, setEditingName] = useState(false);
+  const [tempName, setTempName] = useState("");
 
   const day = DAYS[activeDay];
   const dateKey = `${activeDay}_${todayKey()}`;
@@ -106,12 +132,12 @@ const DAYS = [
 
   const getVal = (exIdx, setIdx, field) => inputs[`${exIdx}_${setIdx}_${field}`] || "";
 
-  // History: group by day index
   const histData = () => {
-    const hDay = DAYS[historyDay];
     const entries = [];
     Object.keys(logs).forEach(k => {
-      const [dIdx, date] = k.split("_");
+      const parts = k.split("_");
+      const dIdx = parts[0];
+      const date = parts.slice(1).join("_");
       if (parseInt(dIdx) === historyDay && date) {
         entries.push({ date, data: logs[k] });
       }
@@ -141,8 +167,38 @@ const DAYS = [
     return { done, total };
   };
 
+  const makeToggle = (setter, storageKey) => (key) => {
+    setter(prev => {
+      const cur = prev[key];
+      const next = cur === "done" ? "miss" : cur === "miss" ? null : "done";
+      const updated = { ...prev };
+      if (next === null) delete updated[key]; else updated[key] = next;
+      localStorage.setItem(storageKey, JSON.stringify(updated));
+      return updated;
+    });
+  };
+  const toggleHabit  = makeToggle(setHabit,  "habit_cal");
+  const toggleHabitT = makeToggle(setHabitT, "habit_t");
+  const toggleHabitQ = makeToggle(setHabitQ, "habit_q");
+
+  const saveHabitName = () => {
+    const name = tempName.trim() || habitName;
+    setHabitName(name);
+    localStorage.setItem("habit_name", name);
+    setEditingName(false);
+  };
+
   const prog = completedSets();
   const pct = prog.total > 0 ? Math.round((prog.done / prog.total) * 100) : 0;
+
+  const month = GREGORIAN_MONTHS_2026[calMonth];
+  const countStatus = (h, status) => Object.keys(h).filter(k => k.startsWith(`${calMonth}_`) && h[k] === status).length;
+  const calDone = countStatus(habit, "done") + countStatus(habitT, "done") + countStatus(habitQ, "done");
+  const calMiss = countStatus(habit, "miss") + countStatus(habitT, "miss") + countStatus(habitQ, "miss");
+  const calTotal = month.days * 3;
+  const calPct = Math.round((calDone / calTotal) * 100);
+
+  const TABS = ["log", "history", "diet", "calendar"];
 
   return (
     <div style={{ minHeight: "100vh", background: "#080810", color: "#E2E8F0", fontFamily: "'Courier New', monospace" }}>
@@ -157,10 +213,10 @@ const DAYS = [
         .day-btn:hover { opacity: 1 !important; transform: translateY(-1px); }
         .ex-card { transition: box-shadow 0.2s; }
         .ex-card:hover { box-shadow: 0 0 0 1px #333; }
-        .set-input { transition: border-color 0.15s, background 0.15s; }
         .set-input:focus { outline: none; }
-        .save-btn { transition: all 0.2s; }
         .save-btn:hover { filter: brightness(1.15); }
+        .cal-day:hover { filter: brightness(1.2); }
+        .tab-btn:hover { color: #fff !important; }
       `}</style>
 
       {/* Header */}
@@ -168,41 +224,45 @@ const DAYS = [
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
           <div>
             <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 28, letterSpacing: 3, color: "#fff", lineHeight: 1 }}>
-             Ameen's LIFT LOG
+              LIFT LOG
             </div>
             <div style={{ fontSize: 10, color: "#444", letterSpacing: 2, marginTop: 3 }}>{getWeekLabel()}</div>
-          </div>
-          <div style={{ display: "flex", gap: 6 }}>
-           {["log", "history", "diet", "calendar"].map(v => (
-              <button key={v} onClick={() => setView(v)} style={{
-              flex: 1, padding: "14px", border: "none", background: "transparent",
-              color: view === v ? "#FF6B35" : "#555",
-              borderBottom: view === v ? "2px solid #FF6B35" : "2px solid transparent",
-              fontSize: 10, letterSpacing: 2, textTransform: "uppercase", cursor: "pointer",
-              fontFamily: "'JetBrains Mono', monospace", transition: "color 0.2s",
-           }}>{v}</button>
-           ))}
           </div>
         </div>
       </div>
 
-      {/* Day Tabs */}
-      <div style={{ display: "flex", overflowX: "auto", background: "#0a0a14", borderBottom: "1px solid #1a1a2e", scrollbarWidth: "none" }}>
-        {DAYS.map((d, i) => (
-          <button key={i} className="day-btn" onClick={() => setActiveDay(i)} style={{
-            flexShrink: 0, minWidth: 52, padding: "12px 6px", border: "none", cursor: "pointer",
-            background: "transparent", opacity: activeDay === i ? 1 : 0.4, transition: "all 0.2s",
-            borderBottom: activeDay === i ? `2px solid ${d.color}` : "2px solid transparent",
-          }}>
-            <div style={{ fontSize: 9, letterSpacing: 1, color: d.color, marginBottom: 3 }}>{d.short}</div>
-            <div style={{ fontSize: 11, color: activeDay === i ? "#fff" : "#666", fontFamily: "'JetBrains Mono', monospace" }}>{d.label}</div>
-          </button>
+      {/* Tabs */}
+      <div style={{ display: "flex", borderBottom: "1px solid #1e1e2e", background: "#0d0d18", overflowX: "auto" }}>
+        {TABS.map(v => (
+          <button key={v} className="tab-btn" onClick={() => setView(v)} style={{
+            flex: 1, minWidth: 70, padding: "12px 4px", border: "none", background: "transparent",
+            color: view === v ? "#F97316" : "#444",
+            borderBottom: view === v ? "2px solid #F97316" : "2px solid transparent",
+            fontSize: 9, letterSpacing: 2, textTransform: "uppercase", cursor: "pointer",
+            fontFamily: "'JetBrains Mono', monospace", transition: "color 0.2s", whiteSpace: "nowrap",
+          }}>{v}</button>
         ))}
       </div>
 
+      {/* Day Tabs — only show on log and history */}
+      {(view === "log" || view === "history") && (
+        <div style={{ display: "flex", overflowX: "auto", background: "#0a0a14", borderBottom: "1px solid #1a1a2e", scrollbarWidth: "none" }}>
+          {DAYS.map((d, i) => (
+            <button key={i} className="day-btn" onClick={() => { setActiveDay(i); setHistoryDay(i); }} style={{
+              flexShrink: 0, minWidth: 52, padding: "12px 6px", border: "none", cursor: "pointer",
+              background: "transparent", opacity: activeDay === i ? 1 : 0.4, transition: "all 0.2s",
+              borderBottom: activeDay === i ? `2px solid ${d.color}` : "2px solid transparent",
+            }}>
+              <div style={{ fontSize: 9, letterSpacing: 1, color: d.color, marginBottom: 3 }}>{d.short}</div>
+              <div style={{ fontSize: 11, color: activeDay === i ? "#fff" : "#666", fontFamily: "'JetBrains Mono', monospace" }}>{d.label}</div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* ── LOG VIEW ── */}
       {view === "log" && (
         <>
-          {/* Day Header */}
           <div style={{
             padding: "16px 16px 12px",
             background: `linear-gradient(180deg, ${day.glow} 0%, transparent 100%)`,
@@ -217,77 +277,44 @@ const DAYS = [
               </div>
               {!day.isRest && (
                 <div style={{ textAlign: "right" }}>
-                  <div style={{ fontSize: 20, fontFamily: "'Bebas Neue', sans-serif", color: pct === 100 ? "#4ade80" : "#fff" }}>
-                    {pct}%
-                  </div>
+                  <div style={{ fontSize: 20, fontFamily: "'Bebas Neue', sans-serif", color: pct === 100 ? "#4ade80" : "#fff" }}>{pct}%</div>
                   <div style={{ fontSize: 9, color: "#444", letterSpacing: 1 }}>{prog.done}/{prog.total} SETS</div>
                 </div>
               )}
             </div>
             {!day.isRest && prog.total > 0 && (
               <div style={{ marginTop: 10, background: "#111", borderRadius: 4, height: 3, overflow: "hidden" }}>
-                <div style={{
-                  height: "100%", borderRadius: 4, transition: "width 0.4s",
-                  background: pct === 100 ? "#4ade80" : day.color,
-                  width: `${pct}%`,
-                }} />
+                <div style={{ height: "100%", borderRadius: 4, transition: "width 0.4s", background: pct === 100 ? "#4ade80" : day.color, width: `${pct}%` }} />
               </div>
             )}
           </div>
 
-          {/* Rest Day */}
-          {day.isRest && (
+          {day.isRest ? (
             <div style={{ textAlign: "center", padding: "80px 24px" }}>
               <div style={{ fontSize: 48, marginBottom: 20 }}>🛌</div>
-              <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 28, color: "#333", letterSpacing: 3 }}>
-                REST DAY
-              </div>
+              <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 28, color: "#333", letterSpacing: 3 }}>REST DAY</div>
               <div style={{ fontSize: 13, color: "#444", marginTop: 8 }}>Recovery is where growth happens.</div>
             </div>
-          )}
-
-          {/* Exercises */}
-          {!day.isRest && (
+          ) : (
             <div style={{ padding: "12px 14px 100px" }}>
               {day.exercises.map((ex, ei) => {
                 const vol = totalVolume(ei, inputs);
-                const allDone = Array.from({ length: SETS_COUNT }).every((_, s) =>
-                  getVal(ei, s, "weight") && getVal(ei, s, "reps")
-                );
+                const allDone = Array.from({ length: SETS_COUNT }).every((_, s) => getVal(ei, s, "weight") && getVal(ei, s, "reps"));
                 return (
                   <div key={ei} className="ex-card" style={{
                     background: allDone ? `${day.glow}` : "#0d0d1a",
                     border: `1px solid ${allDone ? day.color + "40" : "#1a1a2e"}`,
                     borderRadius: 10, marginBottom: 10, overflow: "hidden",
                   }}>
-                    {/* Exercise header */}
-                    <div style={{
-                      padding: "12px 14px 10px",
-                      borderBottom: "1px solid #1a1a2e",
-                      display: "flex", justifyContent: "space-between", alignItems: "center",
-                    }}>
+                    <div style={{ padding: "12px 14px 10px", borderBottom: "1px solid #1a1a2e", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <span style={{
-                          width: 22, height: 22, borderRadius: "50%", fontSize: 10, fontWeight: 700,
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                          background: allDone ? day.color : "#1a1a2e",
-                          color: allDone ? "#000" : "#555",
-                        }}>{allDone ? "✓" : ei + 1}</span>
+                        <span style={{ width: 22, height: 22, borderRadius: "50%", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", background: allDone ? day.color : "#1a1a2e", color: allDone ? "#000" : "#555" }}>{allDone ? "✓" : ei + 1}</span>
                         <span style={{ fontSize: 13, color: "#ccc", fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>{ex}</span>
                       </div>
-                      {vol && (
-                        <span style={{ fontSize: 10, color: day.color, letterSpacing: 1 }}>
-                          {vol} kg vol
-                        </span>
-                      )}
+                      {vol && <span style={{ fontSize: 10, color: day.color, letterSpacing: 1 }}>{vol} kg vol</span>}
                     </div>
-
-                    {/* Sets */}
                     <div style={{ padding: "10px 14px" }}>
-                      <div style={{
-                        display: "grid", gridTemplateColumns: "28px 1fr 1fr 48px",
-                        gap: 6, marginBottom: 6, padding: "0 2px",
-                      }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "28px 1fr 1fr 48px", gap: 6, marginBottom: 6, padding: "0 2px" }}>
                         <span />
                         <span style={{ fontSize: 9, color: "#444", letterSpacing: 2, textAlign: "center" }}>WEIGHT (kg)</span>
                         <span style={{ fontSize: 9, color: "#444", letterSpacing: 2, textAlign: "center" }}>REPS</span>
@@ -299,43 +326,11 @@ const DAYS = [
                         const rowVol = w && r ? (parseFloat(w) * parseFloat(r)).toFixed(0) : "";
                         const rowDone = w && r;
                         return (
-                          <div key={si} style={{
-                            display: "grid", gridTemplateColumns: "28px 1fr 1fr 48px",
-                            gap: 6, marginBottom: 5, alignItems: "center",
-                          }}>
-                            <span style={{
-                              fontSize: 10, color: rowDone ? day.color : "#333",
-                              textAlign: "center", fontWeight: 700,
-                              fontFamily: "'JetBrains Mono', monospace",
-                            }}>S{si + 1}</span>
-                            <input
-                              className="set-input"
-                              type="number" placeholder="—" value={w}
-                              onChange={e => handleInput(ei, si, "weight", e.target.value)}
-                              style={{
-                                background: rowDone ? `${day.color}12` : "#111",
-                                border: `1px solid ${rowDone ? day.color + "50" : "#222"}`,
-                                borderRadius: 6, padding: "8px 10px", color: rowDone ? "#fff" : "#666",
-                                fontSize: 14, fontFamily: "'JetBrains Mono', monospace",
-                                width: "100%", textAlign: "center",
-                              }}
-                            />
-                            <input
-                              className="set-input"
-                              type="number" placeholder="—" value={r}
-                              onChange={e => handleInput(ei, si, "reps", e.target.value)}
-                              style={{
-                                background: rowDone ? `${day.color}12` : "#111",
-                                border: `1px solid ${rowDone ? day.color + "50" : "#222"}`,
-                                borderRadius: 6, padding: "8px 10px", color: rowDone ? "#fff" : "#666",
-                                fontSize: 14, fontFamily: "'JetBrains Mono', monospace",
-                                width: "100%", textAlign: "center",
-                              }}
-                            />
-                            <span style={{
-                              fontSize: 11, color: rowDone ? day.color : "#2a2a3a",
-                              textAlign: "center", fontFamily: "'JetBrains Mono', monospace",
-                            }}>{rowVol || "·"}</span>
+                          <div key={si} style={{ display: "grid", gridTemplateColumns: "28px 1fr 1fr 48px", gap: 6, marginBottom: 5, alignItems: "center" }}>
+                            <span style={{ fontSize: 10, color: rowDone ? day.color : "#333", textAlign: "center", fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>S{si + 1}</span>
+                            <input className="set-input" type="number" placeholder="—" value={w} onChange={e => handleInput(ei, si, "weight", e.target.value)} style={{ background: rowDone ? `${day.color}12` : "#111", border: `1px solid ${rowDone ? day.color + "50" : "#222"}`, borderRadius: 6, padding: "8px 10px", color: rowDone ? "#fff" : "#666", fontSize: 14, fontFamily: "'JetBrains Mono', monospace", width: "100%", textAlign: "center" }} />
+                            <input className="set-input" type="number" placeholder="—" value={r} onChange={e => handleInput(ei, si, "reps", e.target.value)} style={{ background: rowDone ? `${day.color}12` : "#111", border: `1px solid ${rowDone ? day.color + "50" : "#222"}`, borderRadius: 6, padding: "8px 10px", color: rowDone ? "#fff" : "#666", fontSize: 14, fontFamily: "'JetBrains Mono', monospace", width: "100%", textAlign: "center" }} />
+                            <span style={{ fontSize: 11, color: rowDone ? day.color : "#2a2a3a", textAlign: "center", fontFamily: "'JetBrains Mono', monospace" }}>{rowVol || "·"}</span>
                           </div>
                         );
                       })}
@@ -343,16 +338,8 @@ const DAYS = [
                   </div>
                 );
               })}
-
-              {/* Save Button */}
               <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, padding: "16px", background: "linear-gradient(0deg, #080810 60%, transparent)" }}>
-                <button className="save-btn" onClick={saveSession} style={{
-                  width: "100%", padding: "16px",
-                  background: saved ? "#4ade80" : day.color,
-                  border: "none", borderRadius: 10, cursor: "pointer",
-                  fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: 3,
-                  color: saved ? "#000" : "#000",
-                }}>
+                <button className="save-btn" onClick={saveSession} style={{ width: "100%", padding: "16px", background: saved ? "#4ade80" : day.color, border: "none", borderRadius: 10, cursor: "pointer", fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: 3, color: "#000" }}>
                   {saved ? "✓  SAVED!" : "SAVE SESSION"}
                 </button>
               </div>
@@ -361,24 +348,9 @@ const DAYS = [
         </>
       )}
 
+      {/* ── HISTORY VIEW ── */}
       {view === "history" && (
         <div style={{ padding: "16px" }}>
-          {/* Day picker */}
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
-            {DAYS.filter(d => !d.isRest).map((d, i) => {
-              const realIdx = DAYS.indexOf(d);
-              return (
-                <button key={i} onClick={() => setHistoryDay(realIdx)} style={{
-                  padding: "6px 12px", border: `1px solid ${historyDay === realIdx ? d.color : "#222"}`,
-                  borderRadius: 6, background: historyDay === realIdx ? `${d.color}20` : "transparent",
-                  color: historyDay === realIdx ? d.color : "#555",
-                  fontSize: 10, letterSpacing: 1, cursor: "pointer",
-                  fontFamily: "'JetBrains Mono', monospace",
-                }}>{d.day.slice(0, 3)} {d.label}</button>
-              );
-            })}
-          </div>
-
           {(() => {
             const entries = histData();
             if (entries.length === 0) return (
@@ -388,47 +360,24 @@ const DAYS = [
                 <div style={{ fontSize: 12, marginTop: 6 }}>Log a workout first.</div>
               </div>
             );
-            const hDay = DAYS[historyDay];
+            const hDay = DAYS[activeDay];
             return entries.map(({ date, data }) => (
               <div key={date} style={{ background: "#0d0d1a", border: "1px solid #1a1a2e", borderRadius: 10, marginBottom: 12, overflow: "hidden" }}>
-                <div style={{
-                  padding: "10px 14px", borderBottom: "1px solid #1a1a2e",
-                  background: `${hDay.glow}`, display: "flex", justifyContent: "space-between", alignItems: "center",
-                }}>
+                <div style={{ padding: "10px 14px", borderBottom: "1px solid #1a1a2e", background: `${hDay.glow}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, color: hDay.color, letterSpacing: 2 }}>
                     {new Date(date + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
-                  </span>
-                  <span style={{ fontSize: 10, color: "#555", letterSpacing: 1 }}>
-                    {(() => {
-                      let total = 0;
-                      hDay.exercises.forEach((_, ei) => {
-                        for (let s = 0; s < SETS_COUNT; s++) {
-                          const w = parseFloat(data[`${ei}_${s}_weight`] || 0);
-                          const r = parseFloat(data[`${ei}_${s}_reps`] || 0);
-                          total += w * r;
-                        }
-                      });
-                      return total > 0 ? `${total.toFixed(0)} kg total vol` : "";
-                    })()}
                   </span>
                 </div>
                 <div style={{ padding: "10px 14px" }}>
                   {hDay.exercises.map((ex, ei) => {
-                    const sets = Array.from({ length: SETS_COUNT }).map((_, si) => ({
-                      w: data[`${ei}_${si}_weight`],
-                      r: data[`${ei}_${si}_reps`],
-                    })).filter(s => s.w && s.r);
+                    const sets = Array.from({ length: SETS_COUNT }).map((_, si) => ({ w: data[`${ei}_${si}_weight`], r: data[`${ei}_${si}_reps`] })).filter(s => s.w && s.r);
                     if (sets.length === 0) return null;
                     return (
                       <div key={ei} style={{ marginBottom: 10 }}>
                         <div style={{ fontSize: 11, color: "#888", marginBottom: 5, fontFamily: "'JetBrains Mono', monospace" }}>{ex}</div>
                         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                           {sets.map((s, si) => (
-                            <span key={si} style={{
-                              background: `${hDay.color}15`, border: `1px solid ${hDay.color}30`,
-                              borderRadius: 6, padding: "4px 10px", fontSize: 11,
-                              color: hDay.color, fontFamily: "'JetBrains Mono', monospace",
-                            }}>{s.w}kg × {s.r}</span>
+                            <span key={si} style={{ background: `${hDay.color}15`, border: `1px solid ${hDay.color}30`, borderRadius: 6, padding: "4px 10px", fontSize: 11, color: hDay.color, fontFamily: "'JetBrains Mono', monospace" }}>{s.w}kg × {s.r}</span>
                           ))}
                         </div>
                       </div>
@@ -440,10 +389,10 @@ const DAYS = [
           })()}
         </div>
       )}
+
+      {/* ── DIET VIEW ── */}
       {view === "diet" && (
         <div style={{ padding: "16px 14px 40px" }}>
-
-          {/* Goal Banner */}
           <div style={{ background: "linear-gradient(135deg, rgba(249,115,22,0.15), transparent)", border: "1px solid rgba(249,115,22,0.3)", borderRadius: 12, padding: "18px", marginBottom: 14 }}>
             <div style={{ fontSize: 10, letterSpacing: 3, color: "#F97316", marginBottom: 8, textTransform: "uppercase" }}>🎯 Your Goal</div>
             <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color: "#fff", letterSpacing: 2 }}>57 KG → 65 KG</div>
@@ -458,11 +407,10 @@ const DAYS = [
             </div>
           </div>
 
-          {/* Daily Targets */}
           <div style={{ background: "#0d0d1a", border: "1px solid #1a1a2e", borderRadius: 12, padding: "18px", marginBottom: 14 }}>
             <div style={{ fontSize: 10, letterSpacing: 3, color: "#22D3EE", marginBottom: 12, textTransform: "uppercase" }}>📊 Daily Targets</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-              {[["🔥 Calories","2300–2500 kcal","#F97316"],["💪 Protein","110–130 g","#22D3EE"],["💧 Water","3 Litres","#60A5FA"],["😴 Sleep","7.5–9 Hours","#A78BFA"],["⚗️ Creatine","5 g Daily","#4ADE80"]].map(([label, val, color]) => (
+              {[["🔥 Calories","1900–2100 kcal","#F97316"],["💪 Protein","110–130 g","#22D3EE"],["💧 Water","3 Litres","#60A5FA"],["😴 Sleep","7.5–9 Hours","#A78BFA"],["⚗️ Creatine","5 g Daily","#4ADE80"],["👟 Steps","8,000–10,000","#FACC15"]].map(([label, val, color]) => (
                 <div key={label} style={{ background: "#111", borderRadius: 8, padding: "12px 10px", border: "1px solid #1a1a2e" }}>
                   <div style={{ fontSize: 11, color: "#555", marginBottom: 4 }}>{label}</div>
                   <div style={{ fontSize: 13, fontWeight: 700, color, fontFamily: "'JetBrains Mono', monospace" }}>{val}</div>
@@ -471,14 +419,13 @@ const DAYS = [
             </div>
           </div>
 
-          {/* Meals */}
           {[
-            { time: "Early Morning", emoji: "🌅", sub: "Pre-Workout", color: "#F97316", items: ["1 Banana","Black Coffee"], protein: null },
-            { time: "Post-Workout", emoji: "💊", sub: "Recovery", color: "#4ADE80", items: ["1 Scoop Whey Protein (optional)","1 Banana"], protein: "~25g" },
+            { time: "Early Morning", emoji: "🌅", sub: "Pre-Workout", color: "#F97316", items: ["1 Banana","Black Coffee (optional)"], protein: null },
             { time: "Breakfast", emoji: "🍳", sub: "Post-Workout", color: "#FACC15", items: ["4 Whole Eggs + 2 Egg Whites","80g Oats with 250ml Milk","1 Fruit (Apple / Banana)"], protein: "~35g" },
             { time: "Lunch", emoji: "🍗", sub: "Midday", color: "#22D3EE", items: ["150–200g Chicken / Fish OR 100g Paneer","2 Chapatis + 1 Bowl Rice","1 Bowl Dal + Salad"], protein: "~40g" },
             { time: "Evening Snack", emoji: "🥜", sub: "Pre-Workout fuel", color: "#A78BFA", items: ["Peanut Butter Sandwich (4 bread + 2 tbsp PB)","200ml Milk"], protein: "~15g" },
-            { time: "Dinner", emoji: "🌙", sub: "Evening", color: "#60A5FA", items: ["150–200g Chicken / Fish OR 100g Paneer","3 Chapatis + Mixed Vegetables + Salad"], protein: "~40g" },
+            { time: "Post-Workout", emoji: "💊", sub: "Recovery", color: "#4ADE80", items: ["1 Scoop Whey Protein (optional)","1 Banana"], protein: "~25g" },
+            { time: "Dinner", emoji: "🌙", sub: "Evening", color: "#60A5FA", items: ["150–200g Chicken / Fish OR 100g Paneer","2 Chapatis + Mixed Vegetables + Salad"], protein: "~40g" },
             { time: "Before Bed", emoji: "🥛", sub: "Slow protein", color: "#F472B6", items: ["250ml Milk"], protein: null },
           ].map((meal, i) => (
             <div key={i} style={{ background: "#0d0d1a", border: `1px solid ${meal.color}25`, borderRadius: 12, marginBottom: 10, overflow: "hidden" }}>
@@ -491,9 +438,7 @@ const DAYS = [
                   </div>
                 </div>
                 {meal.protein && (
-                  <div style={{ background: `${meal.color}20`, border: `1px solid ${meal.color}40`, borderRadius: 20, padding: "4px 10px", fontSize: 11, color: meal.color, fontFamily: "'JetBrains Mono', monospace" }}>
-                    {meal.protein} protein
-                  </div>
+                  <div style={{ background: `${meal.color}20`, border: `1px solid ${meal.color}40`, borderRadius: 20, padding: "4px 10px", fontSize: 11, color: meal.color, fontFamily: "'JetBrains Mono', monospace" }}>{meal.protein} protein</div>
                 )}
               </div>
               <div style={{ padding: "12px 16px" }}>
@@ -508,137 +453,137 @@ const DAYS = [
           ))}
         </div>
       )}
-     {view === "calendar" && (() => {
-        const ISLAMIC_MONTHS = [
-          { name: "Muharram", days: 30 },
-          { name: "Safar", days: 29 },
-          { name: "Rabi al-Awwal", days: 30 },
-          { name: "Rabi al-Thani", days: 29 },
-          { name: "Jumada al-Awwal", days: 30 },
-          { name: "Jumada al-Thani", days: 29 },
-          { name: "Rajab", days: 30 },
-          { name: "Sha'ban", days: 29 },
-          { name: "Ramadan", days: 30 },
-          { name: "Shawwal", days: 29 },
-          { name: "Dhul Qa'dah", days: 30 },
-          { name: "Dhul Hijjah", days: 29 },
-        ];
-        const WEEK_DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-        const saveName = (name) => {
-          setHabitName(name);
-          localStorage.setItem("habit_name", name);
-          setEditingName(false);
-        };
 
-        const month = ISLAMIC_MONTHS[calMonth];
-        const done = Object.keys(habit).filter(k => k.startsWith(`${calMonth}_`) && habit[k] === "done").length;
-        const miss = Object.keys(habit).filter(k => k.startsWith(`${calMonth}_`) && habit[k] === "miss").length;
-        const total = month.days;
-        const pctDone = Math.round((done / total) * 100);
+      {/* ── CALENDAR VIEW ── */}
+      {view === "calendar" && (
+        <div style={{ padding: "16px 14px 40px" }}>
 
-        return (
-          <div style={{ padding: "16px 14px 40px" }}>
-
-            {/* Habit Name */}
-            <div style={{ background: "linear-gradient(135deg, rgba(250,204,21,0.12), transparent)", border: "1px solid rgba(250,204,21,0.25)", borderRadius: 12, padding: "18px", marginBottom: 14 }}>
-              <div style={{ fontSize: 10, letterSpacing: 3, color: "#FACC15", marginBottom: 10, textTransform: "uppercase" }}>☪️ Islamic Habit Tracker</div>
-              {editingName ? (
-                <div style={{ display: "flex", gap: 8 }}>
-                  <input
-                    autoFocus
-                    defaultValue={habitName}
-                    onKeyDown={e => e.key === "Enter" && saveName(e.target.value)}
-                    style={{
-                      flex: 1, background: "#111", border: "1px solid #FACC1540",
-                      borderRadius: 8, padding: "10px 14px", color: "#fff",
-                      fontSize: 16, fontFamily: "'JetBrains Mono', monospace",
-                    }}
-                  />
-                  <button onClick={e => saveName(e.target.previousSibling?.value || habitName)} style={{
-                    background: "#FACC15", border: "none", borderRadius: 8,
-                    padding: "10px 16px", color: "#000", cursor: "pointer",
-                    fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: 1,
-                  }}>SAVE</button>
-                </div>
-              ) : (
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 24, color: "#fff", letterSpacing: 2 }}>{habitName}</div>
-                  <button onClick={() => setEditingName(true)} style={{
-                    background: "#1a1a2e", border: "1px solid #333", borderRadius: 6,
-                    padding: "6px 12px", color: "#888", cursor: "pointer",
-                    fontSize: 10, letterSpacing: 1, fontFamily: "'JetBrains Mono', monospace",
-                  }}>✏️ EDIT</button>
-                </div>
-              )}
-              <div style={{ fontSize: 11, color: "#555", marginTop: 6 }}>Tap a date once → ✅ Done &nbsp;|&nbsp; Tap again → ❌ Missed &nbsp;|&nbsp; Tap again → clear</div>
-            </div>
-
-            {/* Month Selector */}
-            <div style={{ display: "flex", overflowX: "auto", gap: 6, marginBottom: 14, scrollbarWidth: "none", paddingBottom: 4 }}>
-              {ISLAMIC_MONTHS.map((m, i) => (
-                <button key={i} onClick={() => setCalMonth(i)} style={{
-                  flexShrink: 0, padding: "8px 12px", border: `1px solid ${calMonth === i ? "#FACC15" : "#1a1a2e"}`,
-                  borderRadius: 8, background: calMonth === i ? "rgba(250,204,21,0.12)" : "#0d0d1a",
-                  color: calMonth === i ? "#FACC15" : "#555",
-                  fontSize: 10, letterSpacing: 1, cursor: "pointer",
-                  fontFamily: "'JetBrains Mono', monospace", whiteSpace: "nowrap",
-                }}>{m.name}</button>
-              ))}
-            </div>
-
-            {/* Month Stats */}
-            <div style={{ background: "#0d0d1a", border: "1px solid #1a1a2e", borderRadius: 12, padding: "16px", marginBottom: 14 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, color: "#FACC15", letterSpacing: 2 }}>{month.name}</div>
-                <div style={{ fontSize: 11, color: "#555", fontFamily: "'JetBrains Mono', monospace" }}>{month.days} days</div>
+          {/* Habit Name */}
+          <div style={{ background: "linear-gradient(135deg, rgba(250,204,21,0.12), transparent)", border: "1px solid rgba(250,204,21,0.25)", borderRadius: 12, padding: "18px", marginBottom: 14 }}>
+            <div style={{ fontSize: 10, letterSpacing: 3, color: "#FACC15", marginBottom: 10, textTransform: "uppercase" }}>📅 2026 Habit Tracker</div>
+            {editingName ? (
+              <div style={{ display: "flex", gap: 8 }}>
+                <input
+                  autoFocus
+                  value={tempName}
+                  onChange={e => setTempName(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && saveHabitName()}
+                  placeholder={habitName}
+                  style={{ flex: 1, background: "#111", border: "1px solid #FACC1540", borderRadius: 8, padding: "10px 14px", color: "#fff", fontSize: 16, fontFamily: "'JetBrains Mono', monospace" }}
+                />
+                <button onClick={saveHabitName} style={{ background: "#FACC15", border: "none", borderRadius: 8, padding: "10px 16px", color: "#000", cursor: "pointer", fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: 1 }}>SAVE</button>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
-                {[["✅ Done", done, "#4ADE80"],["❌ Missed", miss, "#F87171"],["⬜ Left", total - done - miss, "#444"]].map(([label, val, color]) => (
-                  <div key={label} style={{ background: "#111", borderRadius: 8, padding: "10px", textAlign: "center", border: "1px solid #1a1a2e" }}>
-                    <div style={{ fontSize: 18, fontWeight: 700, color, fontFamily: "'JetBrains Mono', monospace" }}>{val}</div>
-                    <div style={{ fontSize: 9, color: "#555", marginTop: 3, letterSpacing: 1 }}>{label}</div>
-                  </div>
-                ))}
+            ) : (
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 24, color: "#fff", letterSpacing: 2 }}>{habitName}</div>
+                <button onClick={() => { setTempName(habitName); setEditingName(true); }} style={{ background: "#1a1a2e", border: "1px solid #333", borderRadius: 6, padding: "6px 12px", color: "#888", cursor: "pointer", fontSize: 10, letterSpacing: 1, fontFamily: "'JetBrains Mono', monospace" }}>✏️ EDIT</button>
               </div>
-              <div style={{ background: "#111", borderRadius: 4, height: 6, overflow: "hidden", display: "flex" }}>
-                <div style={{ width: `${pctDone}%`, background: "#4ADE80", transition: "width 0.3s" }} />
-                <div style={{ width: `${Math.round((miss/total)*100)}%`, background: "#F87171", transition: "width 0.3s" }} />
-              </div>
-              <div style={{ fontSize: 10, color: "#555", marginTop: 6, textAlign: "right", letterSpacing: 1 }}>{pctDone}% completed this month</div>
-            </div>
-
-            {/* Week day headers */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, marginBottom: 6 }}>
-              {WEEK_DAYS.map(d => (
-                <div key={d} style={{ textAlign: "center", fontSize: 9, color: "#444", letterSpacing: 1, padding: "4px 0" }}>{d}</div>
-              ))}
-            </div>
-
-            {/* Calendar Grid */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
-              {Array.from({ length: month.days }).map((_, i) => {
-                const dayNum = i + 1;
-                const key = `${calMonth}_${dayNum}`;
-                const status = habit[key];
-                return (
-                  <button key={i} onClick={() => toggle(key)} style={{
-                    aspectRatio: "1", borderRadius: 8, border: "1px solid",
-                    borderColor: status === "done" ? "#4ADE8060" : status === "miss" ? "#F8717160" : "#1a1a2e",
-                    background: status === "done" ? "rgba(74,222,128,0.15)" : status === "miss" ? "rgba(248,113,113,0.15)" : "#0d0d1a",
-                    cursor: "pointer", display: "flex", flexDirection: "column",
-                    alignItems: "center", justifyContent: "center", gap: 1,
-                    transition: "all 0.15s",
-                  }}>
-                    <span style={{ fontSize: 11, color: status === "done" ? "#4ADE80" : status === "miss" ? "#F87171" : "#555", fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>{dayNum}</span>
-                    <span style={{ fontSize: 12, lineHeight: 1 }}>{status === "done" ? "✅" : status === "miss" ? "❌" : ""}</span>
-                  </button>
-                );
-              })}
-            </div>
-
+            )}
+            <div style={{ fontSize: 11, color: "#555", marginTop: 8 }}>Tap once → ✅ Done &nbsp;|&nbsp; Tap again → ❌ Missed &nbsp;|&nbsp; Tap again → clear</div>
           </div>
-        );
-      })()} 
+
+          {/* Month Selector */}
+          <div style={{ display: "flex", overflowX: "auto", gap: 6, marginBottom: 14, scrollbarWidth: "none", paddingBottom: 4 }}>
+            {GREGORIAN_MONTHS_2026.map((m, i) => (
+              <button key={i} onClick={() => setCalMonth(i)} style={{ flexShrink: 0, padding: "8px 12px", border: `1px solid ${calMonth === i ? "#FACC15" : "#1a1a2e"}`, borderRadius: 8, background: calMonth === i ? "rgba(250,204,21,0.12)" : "#0d0d1a", color: calMonth === i ? "#FACC15" : "#555", fontSize: 10, letterSpacing: 1, cursor: "pointer", fontFamily: "'JetBrains Mono', monospace", whiteSpace: "nowrap" }}>{m.name}</button>
+            ))}
+          </div>
+
+          {/* Month Stats */}
+          <div style={{ background: "#0d0d1a", border: "1px solid #1a1a2e", borderRadius: 12, padding: "16px", marginBottom: 14 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+              <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, color: "#FACC15", letterSpacing: 2 }}>{month.name}</div>
+              <div style={{ fontSize: 11, color: "#555", fontFamily: "'JetBrains Mono', monospace" }}>{month.days} days</div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
+              {[["✅ Done", calDone, "#4ADE80"],["❌ Missed", calMiss, "#F87171"],["⬜ Left", calTotal - calDone - calMiss, "#444"]].map(([label, val, color]) => (
+                <div key={label} style={{ background: "#111", borderRadius: 8, padding: "10px", textAlign: "center", border: "1px solid #1a1a2e" }}>
+                  <div style={{ fontSize: 18, fontWeight: 700, color, fontFamily: "'JetBrains Mono', monospace" }}>{val}</div>
+                  <div style={{ fontSize: 9, color: "#555", marginTop: 3, letterSpacing: 1 }}>{label}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ background: "#111", borderRadius: 4, height: 6, overflow: "hidden", display: "flex" }}>
+              <div style={{ width: `${calPct}%`, background: "#4ADE80", transition: "width 0.3s" }} />
+              <div style={{ width: `${Math.round((calMiss / calTotal) * 100)}%`, background: "#F87171", transition: "width 0.3s" }} />
+            </div>
+            <div style={{ fontSize: 10, color: "#555", marginTop: 6, textAlign: "right", letterSpacing: 1 }}>{calPct}% completed this month</div>
+          </div>
+
+          {/* Week Headers */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, marginBottom: 6 }}>
+            {WEEK_DAYS.map(d => (
+              <div key={d} style={{ textAlign: "center", fontSize: 9, color: "#444", letterSpacing: 1, padding: "4px 0" }}>{d}</div>
+            ))}
+          </div>
+
+          {/* Legend */}
+          <div style={{ display: "flex", gap: 12, marginBottom: 10, padding: "0 2px" }}>
+            {[["H", habitName, "#FACC15"], ["T", "T", "#22D3EE"], ["Q", "Q", "#A78BFA"]].map(([id, label, color]) => (
+              <div key={id} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <div style={{ width: 10, height: 10, borderRadius: 2, background: color, opacity: 0.7 }} />
+                <span style={{ fontSize: 9, color: "#555", fontFamily: "'JetBrains Mono', monospace", letterSpacing: 1 }}>{label}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Calendar Grid */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
+            {Array.from({ length: month.startDay }).map((_, i) => (
+              <div key={`blank-${i}`} />
+            ))}
+            {Array.from({ length: month.days }).map((_, i) => {
+              const dayNum = i + 1;
+              const key = `${calMonth}_${dayNum}`;
+              const sH = habit[key];
+              const sT = habitT[key];
+              const sQ = habitQ[key];
+              const anyDone = sH === "done" || sT === "done" || sQ === "done";
+              const anyMiss = sH === "miss" || sT === "miss" || sQ === "miss";
+              const cellBorder = anyDone ? "#4ADE8030" : anyMiss ? "#F8717130" : "#1a1a2e";
+              const cellBg = anyDone ? "rgba(74,222,128,0.06)" : anyMiss ? "rgba(248,113,113,0.06)" : "#0d0d1a";
+
+              const MiniBox = ({ status, onToggle, color }) => (
+                <button
+                  onClick={e => { e.stopPropagation(); onToggle(key); }}
+                  style={{
+                    width: "100%", height: 14, borderRadius: 3, border: `1px solid`,
+                    borderColor: status === "done" ? color + "80" : status === "miss" ? "#F8717180" : "#2a2a3a",
+                    background: status === "done" ? color + "25" : status === "miss" ? "rgba(248,113,113,0.15)" : "#111",
+                    cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                    padding: 0, transition: "all 0.15s",
+                  }}
+                >
+                  {status === "done" && <span style={{ fontSize: 8, lineHeight: 1, color }}>✓</span>}
+                  {status === "miss" && <span style={{ fontSize: 8, lineHeight: 1, color: "#F87171" }}>✕</span>}
+                </button>
+              );
+
+              return (
+                <div key={i} style={{ borderRadius: 8, border: `1px solid ${cellBorder}`, background: cellBg, padding: "5px 4px 4px", display: "flex", flexDirection: "column", gap: 3, transition: "all 0.15s", minHeight: 72 }}>
+                  {/* Day number */}
+                  <div style={{ fontSize: 10, color: "#666", fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, textAlign: "center", marginBottom: 1 }}>{dayNum}</div>
+                  {/* H row */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                    <span style={{ fontSize: 7, color: "#FACC1599", fontFamily: "'JetBrains Mono', monospace", width: 7, flexShrink: 0 }}>H</span>
+                    <MiniBox status={sH} onToggle={toggleHabit} color="#FACC15" />
+                  </div>
+                  {/* T row */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                    <span style={{ fontSize: 7, color: "#22D3EE99", fontFamily: "'JetBrains Mono', monospace", width: 7, flexShrink: 0 }}>T</span>
+                    <MiniBox status={sT} onToggle={toggleHabitT} color="#22D3EE" />
+                  </div>
+                  {/* Q row */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                    <span style={{ fontSize: 7, color: "#A78BFA99", fontFamily: "'JetBrains Mono', monospace", width: 7, flexShrink: 0 }}>Q</span>
+                    <MiniBox status={sQ} onToggle={toggleHabitQ} color="#A78BFA" />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
