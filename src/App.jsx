@@ -350,7 +350,18 @@ export default function WorkoutTracker() {
 
       {/* ── HISTORY VIEW ── */}
       {view === "history" && (
-        <div style={{ padding: "16px" }}>
+     <div style={{ padding: "16px" }}>
+    <button onClick={() => {
+      if (window.confirm("Clear all workout history? This cannot be undone.")) {
+        localStorage.removeItem("wt_logs");
+        setLogs({});
+      }
+    }} style={{
+      width: "100%", padding: "12px", marginBottom: 16,
+      background: "rgba(248,113,113,0.12)", border: "1px solid #F8717150",
+      borderRadius: 8, color: "#F87171", cursor: "pointer",
+      fontSize: 12, letterSpacing: 1, fontFamily: "'JetBrains Mono', monospace",
+    }}>🗑️ CLEAR HISTORY</button>
           {(() => {
             const entries = histData();
             if (entries.length === 0) return (
