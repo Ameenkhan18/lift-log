@@ -105,6 +105,20 @@ export default function WorkoutTracker() {
   const [editingName, setEditingName] = useState(false);
   const [tempName, setTempName] = useState("");
 
+  // Editable workout labels (e.g. "Push" / "Pull" / "Legs")
+  const [dayLabels, setDayLabels] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("wt_day_labels") || "{}"); } catch { return {}; }
+  });
+  const [editingDayLabel, setEditingDayLabel] = useState(false);
+  const [tempDayLabel, setTempDayLabel] = useState("");
+
+  // Editable exercise names
+  const [exerciseNames, setExerciseNames] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("wt_exercise_names") || "{}"); } catch { return {}; }
+  });
+  const [editingExercise, setEditingExercise] = useState(null); // ei or null
+  const [tempExerciseName, setTempExerciseName] = useState("");
+
   const day = DAYS[activeDay];
   const dateKey = `${activeDay}_${todayKey()}`;
 
@@ -112,6 +126,8 @@ export default function WorkoutTracker() {
     const existing = logs[dateKey] || {};
     setInputs(existing);
     setSaved(false);
+    setEditingDayLabel(false);
+    setEditingExercise(null);
   }, [activeDay]);
 
   useEffect(() => {
@@ -186,6 +202,26 @@ export default function WorkoutTracker() {
     setHabitName(name);
     localStorage.setItem("habit_name", name);
     setEditingName(false);
+  };
+
+  const getExerciseName = (ei, fallback) => exerciseNames[`${activeDay}_${ei}`] || fallback;
+
+  const saveExerciseName = (ei, fallback) => {
+    const name = tempExerciseName.trim() || getExerciseName(ei, fallback);
+    setExerciseNames(prev => {
+      const updated = { ...prev, [`${activeDay}_${ei}`]: name };
+      try { localStorage.setItem("wt_exercise_names", JSON.stringify(updated)); } catch {}
+      return updated;
+    });
+    setEditingExercise(null);
+  };
+    const name = tempDayLabel.trim() || (dayLabels[activeDay] || day.label);
+    setDayLabels(prev => {
+      const updated = { ...prev, [activeDay]: name };
+      try { localStorage.setItem("wt_day_labels", JSON.stringify(updated)); } catch {}
+      return updated;
+    });
+    setEditingDayLabel(false);
   };
 
   const prog = completedSets();
@@ -270,9 +306,28 @@ export default function WorkoutTracker() {
           }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
-                <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color: day.color, letterSpacing: 2 }}>
-                  {day.day} — {day.label}
-                </div>
+                {editingDayLabel ? (
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <input
+                      autoFocus
+                      value={tempDayLabel}
+                      onChange={e => setTempDayLabel(e.target.value)}
+                      onKeyDown={e => e.key === "Enter" && saveDayLabel()}
+                      placeholder={dayLabels[activeDay] || day.label}
+                      style={{ background: "#111", border: `1px solid ${day.color}50`, borderRadius: 6, padding: "6px 10px", color: "#fff", fontSize: 16, fontFamily: "'JetBrains Mono', monospace", width: 140 }}
+                    />
+                    <button onClick={saveDayLabel} style={{ background: day.color, border: "none", borderRadius: 6, padding: "6px 12px", color: "#000", cursor: "pointer", fontFamily: "'Bebas Neue', sans-serif", fontSize: 12, letterSpacing: 1 }}>SAVE</button>
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color: day.color, letterSpacing: 2 }}>
+                      {day.day} — {dayLabels[activeDay] || day.label}
+                    </div>
+                    {!day.isRest && (
+                      <button onClick={() => { setTempDayLabel(dayLabels[activeDay] || day.label); setEditingDayLabel(true); }} style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 13, color: "#666", padding: 0 }} title="Edit workout name">✏️</button>
+                    )}
+                  </div>
+                )}
                 <div style={{ fontSize: 11, color: "#555", letterSpacing: 1 }}>{day.sub}</div>
               </div>
               {!day.isRest && (
@@ -307,11 +362,28 @@ export default function WorkoutTracker() {
                     borderRadius: 10, marginBottom: 10, overflow: "hidden",
                   }}>
                     <div style={{ padding: "12px 14px 10px", borderBottom: "1px solid #1a1a2e", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <span style={{ width: 22, height: 22, borderRadius: "50%", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", background: allDone ? day.color : "#1a1a2e", color: allDone ? "#000" : "#555" }}>{allDone ? "✓" : ei + 1}</span>
-                        <span style={{ fontSize: 13, color: "#ccc", fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>{ex}</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
+                        <span style={{ width: 22, height: 22, borderRadius: "50%", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", background: allDone ? day.color : "#1a1a2e", color: allDone ? "#000" : "#555", flexShrink: 0 }}>{allDone ? "✓" : ei + 1}</span>
+                        {editingExercise === ei ? (
+                          <div style={{ display: "flex", gap: 6, alignItems: "center", flex: 1, minWidth: 0 }}>
+                            <input
+                              autoFocus
+                              value={tempExerciseName}
+                              onChange={e => setTempExerciseName(e.target.value)}
+                              onKeyDown={e => e.key === "Enter" && saveExerciseName(ei, ex)}
+                              placeholder={getExerciseName(ei, ex)}
+                              style={{ flex: 1, minWidth: 0, background: "#111", border: `1px solid ${day.color}50`, borderRadius: 6, padding: "6px 8px", color: "#fff", fontSize: 13, fontFamily: "'JetBrains Mono', monospace" }}
+                            />
+                            <button onClick={() => saveExerciseName(ei, ex)} style={{ background: day.color, border: "none", borderRadius: 6, padding: "6px 10px", color: "#000", cursor: "pointer", fontFamily: "'Bebas Neue', sans-serif", fontSize: 11, letterSpacing: 1, flexShrink: 0 }}>SAVE</button>
+                          </div>
+                        ) : (
+                          <>
+                            <span style={{ fontSize: 13, color: "#ccc", fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{getExerciseName(ei, ex)}</span>
+                            <button onClick={() => { setTempExerciseName(getExerciseName(ei, ex)); setEditingExercise(ei); }} style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 12, color: "#666", padding: 0, flexShrink: 0 }} title="Edit exercise name">✏️</button>
+                          </>
+                        )}
                       </div>
-                      {vol && <span style={{ fontSize: 10, color: day.color, letterSpacing: 1 }}>{vol} kg vol</span>}
+                      {vol && editingExercise !== ei && <span style={{ fontSize: 10, color: day.color, letterSpacing: 1, flexShrink: 0, marginLeft: 8 }}>{vol} kg vol</span>}
                     </div>
                     <div style={{ padding: "10px 14px" }}>
                       <div style={{ display: "grid", gridTemplateColumns: "28px 1fr 1fr 48px", gap: 6, marginBottom: 6, padding: "0 2px" }}>
@@ -385,7 +457,7 @@ export default function WorkoutTracker() {
                     if (sets.length === 0) return null;
                     return (
                       <div key={ei} style={{ marginBottom: 10 }}>
-                        <div style={{ fontSize: 11, color: "#888", marginBottom: 5, fontFamily: "'JetBrains Mono', monospace" }}>{ex}</div>
+                        <div style={{ fontSize: 11, color: "#888", marginBottom: 5, fontFamily: "'JetBrains Mono', monospace" }}>{exerciseNames[`${historyDay}_${ei}`] || ex}</div>
                         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                           {sets.map((s, si) => (
                             <span key={si} style={{ background: `${hDay.color}15`, border: `1px solid ${hDay.color}30`, borderRadius: 6, padding: "4px 10px", fontSize: 11, color: hDay.color, fontFamily: "'JetBrains Mono', monospace" }}>{s.w}kg × {s.r}</span>
