@@ -215,6 +215,8 @@ export default function WorkoutTracker() {
     });
     setEditingExercise(null);
   };
+
+  const saveDayLabel = () => {
     const name = tempDayLabel.trim() || (dayLabels[activeDay] || day.label);
     setDayLabels(prev => {
       const updated = { ...prev, [activeDay]: name };
